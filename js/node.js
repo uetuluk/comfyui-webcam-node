@@ -22,7 +22,7 @@ function get_position_style(ctx, widget_width, y, node_height) {
     top: `0px`,
     position: "absolute",
     maxWidth: `${widget_width - MARGIN * 2}px`,
-    maxHeight: `${node_height - MARGIN * 2}px`, // we're assuming we have the whole height of the node
+    maxHeight: `${node_height - MARGIN * 2}px`,
     width: `auto`,
     height: `auto`,
   };
@@ -36,117 +36,123 @@ app.registerExtension({
       const orig_nodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         console.log("webcam node created");
-        const widget = {
-          // type: inputdata[0], // whatever
-          name: "webcam", // whatever
+
+        const widget0 = {
+          name: "webcam_selector",
           draw(ctx, node, widget_width, y) {
             Object.assign(
               this.inputEl.style,
               get_position_style(ctx, widget_width, y, node.size[1])
-            ); // assign the required style when we are drawn
+            );
           },
+          inputEl: document.createElement("select"),
         };
 
-        const widget3 = {
-          // type: inputdata[0], // whatever
-          name: "webcam_stop", // whatever
+        const widget = {
+          name: "webcam",
           draw(ctx, node, widget_width, y) {
             Object.assign(
               this.inputEl.style,
               get_position_style(ctx, widget_width, y, node.size[1])
-            ); // assign the required style when we are drawn
+            );
           },
+          inputEl: document.createElement("button"),
         };
 
         const widget2 = {
-          // type: inputdata[0], // whatever
-          name: "webcam_image", // whatever
+          name: "webcam_image",
           draw(ctx, node, widget_width, y) {
             Object.assign(
               this.inputEl.style,
               get_position_style(ctx, widget_width, y + 50, node.size[1])
-            ); // assign the required style when we are drawn
+            );
           },
+          inputEl: document.createElement("img"),
         };
 
-        // ui.js
-        widget.inputEl = document.createElement("button");
+        const widget3 = {
+          name: "webcam_stop",
+          draw(ctx, node, widget_width, y) {
+            Object.assign(
+              this.inputEl.style,
+              get_position_style(ctx, widget_width, y, node.size[1])
+            );
+          },
+          inputEl: document.createElement("button"),
+        };
 
-        widget.inputEl = document.createElement("button");
         widget.inputEl.textContent = "Start Capture";
         widget.inputEl.className = "start-capture";
 
-        widget3.inputEl = document.createElement("button");
         widget3.inputEl.textContent = "Stop Capture";
         widget3.inputEl.className = "stop-capture";
 
-        widget2.inputEl = document.createElement("img");
-
-        // widget.inputEl.className = "test";
-        // widget.inputEl.textContent = "Capture Image";
-
         let captureInterval;
 
-        widget.inputEl.onclick = async () => {
+        widget0.inputEl.onchange = async () => {
           if (captureInterval) {
-            console.log("Capture already started.");
+            console.warn("Switching cameras while capturing is not supported.");
             return;
           }
-          // $el("button", {
-          //   textContent: "Capture Image",
-          //   onclick: async () => {
+          // Change camera based on selected option
+          const videoConstraints = {
+            deviceId: { exact: widget0.inputEl.value }
+          };
+          console.log("Camera switched to:", videoConstraints.deviceId.exact);
+        };
 
+        // Fetch all video input devices
+        navigator.mediaDevices.enumerateDevices().then((devices) => {
+          devices.forEach((device) => {
+            if (device.kind === "videoinput") {
+              const option = document.createElement("option");
+              option.value = device.deviceId;
+              option.text = device.label || `Camera ${widget0.inputEl.length + 1}`;
+              widget0.inputEl.appendChild(option);
+            }
+          });
+        });
+
+        widget.inputEl.onclick = async () => {
           try {
+            const selectedDeviceId = widget0.inputEl.value;
+            const constraints = {
+              video: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined },
+              audio: false
+            };
             captureInterval = setInterval(async () => {
-              const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: 512, height: 512 },
-                audio: false,
-              });
+              const stream = await navigator.mediaDevices.getUserMedia(constraints);
               console.log(stream);
               const video = document.createElement("video");
               video.srcObject = stream;
               video.play();
 
-              // Wait for the video to start playing
               await new Promise((resolve) => (video.onplaying = resolve));
-              // add delay to allow camera to adjust to light
               await new Promise((resolve) => setTimeout(resolve, 300));
 
-              // Stop the video stream
               stream.getTracks().forEach((track) => track.stop());
 
-              // Capture the image
               const canvas = document.createElement("canvas");
               canvas.width = video.videoWidth;
               canvas.height = video.videoHeight;
               const ctx = canvas.getContext("2d");
               ctx.drawImage(video, 0, 0);
 
-              // Set the image to the widget
               widget2.inputEl.src = canvas.toDataURL("image/png");
 
-              // Convert canvas to image blob and send to backend
               canvas.toBlob((blob) => {
-                // const formData = new FormData();
-                // formData.append("image_data", blob);
-                console.log(blob);
-                api
-                  .fetchApi("/webcam_capture", {
-                    method: "POST",
-                    body: blob,
-                  })
-                  .then((response) => response.json())
+                api.fetchApi("/webcam_capture", {
+                  method: "POST",
+                  body: blob,
+                }).then((response) => response.json())
                   .then((data) => console.log(data))
-                  .catch((error) =>
-                    console.error("Error uploading image:", error)
-                  );
+                  .catch((error) => console.error("Error uploading image:", error));
               });
             }, 1000);
           } catch (error) {
             console.error("Error capturing image:", error);
           }
         };
-        // });
 
         widget3.inputEl.onclick = () => {
           if (captureInterval) {
@@ -156,16 +162,17 @@ app.registerExtension({
           }
         };
 
+        document.body.appendChild(widget0.inputEl);
         document.body.appendChild(widget.inputEl);
         document.body.appendChild(widget2.inputEl);
         document.body.appendChild(widget3.inputEl);
 
-        // console.log(widget);
-
+        this.addCustomWidget(widget0);
         this.addCustomWidget(widget);
         this.addCustomWidget(widget2);
         this.addCustomWidget(widget3);
         this.onRemoved = function () {
+          widget0.inputEl.remove();
           widget.inputEl.remove();
           widget2.inputEl.remove();
           widget3.inputEl.remove();
@@ -173,15 +180,6 @@ app.registerExtension({
         this.serialize_widgets = false;
 
         orig_nodeCreated?.apply(this, arguments);
-
-        console.log(this);
-
-        // if (node.box) {
-        //   node.box.appendChild(captureButton);
-        // }
-
-        // // Add the capture button to the node's UI
-        // node.titlebar.appendChild(captureButton);
       };
     }
   },
