@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-webcam-node"
-description = "Nodes:Webcam Capture"
+description = "ComfyUI Node that uses browser side code to access the webcam and display the video feed in a node."
 version = "1.0.0"
 license = "LICENSE"
 
@@ -9,6 +9,6 @@ Repository = "https://github.com/uetuluk/comfyui-webcam-node"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "uetuluk"
 DisplayName = "comfyui-webcam-node"
-Icon = ""
+Icon = "./workflow-example.png"
