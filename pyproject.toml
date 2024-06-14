@@ -1,0 +1,14 @@
+[project]
+name = "comfyui-webcam-node"
+description = "Nodes:Webcam Capture"
+version = "1.0.0"
+license = "LICENSE"
+
+[project.urls]
+Repository = "https://github.com/uetuluk/comfyui-webcam-node"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "comfyui-webcam-node"
+Icon = ""
